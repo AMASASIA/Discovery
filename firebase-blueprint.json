@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "lastLoginAt": { "type": "string" }
+      },
+      "required": ["userId", "displayName", "email", "createdAt"]
+    },
+    "SavedSpatialNode": {
+      "title": "SavedSpatialNode",
+      "description": "User saved spatial node data in 3D discovery space",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "nodeId": { "type": "string" },
+        "title": { "type": "string" },
+        "sector": { "type": "string" },
+        "summary": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "nodeId", "title", "sector"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Gemini chatbot conversation message",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "text": { "type": "string" },
+        "modelName": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["userId", "role", "text", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document"
+    },
+    "/users/{userId}/saved_nodes/{nodeDocId}": {
+      "schema": "SavedSpatialNode",
+      "description": "User saved spatial nodes subcollection"
+    },
+    "/users/{userId}/chat_messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "User Gemini chat conversation messages"
+    }
+  }
+}

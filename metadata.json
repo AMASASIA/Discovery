@@ -1,0 +1,12 @@
+{
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "name": "Discovery OS v1.0 - White Spatial Interface",
+  "description": "Discovery OS v1.0 - White Edition. Interactive 3D spatial interface rendered in Three.js featuring interactive floating UI nodes and mouse gesture navigation.",
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
