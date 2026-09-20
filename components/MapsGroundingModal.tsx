@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Navigation, ExternalLink, Search, X, Loader2, Sparkles, Compass, Plus } from 'lucide-react';
-import { SpatialNode } from '../types';
+import { SpatialNodeData } from '../types';
 
 interface MapsGroundingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddSpatialNode?: (node: Partial<SpatialNode>) => void;
+  onAddSpatialNode?: (node: Partial<SpatialNodeData>) => void;
 }
 
 interface MapPlace {

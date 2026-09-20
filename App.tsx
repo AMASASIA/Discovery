@@ -5,6 +5,11 @@ import { NodeDetailPanel } from './components/NodeDetailPanel';
 import { SemanticTermsPanel } from './components/SemanticTermsPanel';
 import { MemoriaDrawer } from './components/MemoriaDrawer';
 import { VoiceDiscoveryModal } from './components/VoiceDiscoveryModal';
+import { CameraCaptureWidget } from './components/CameraCaptureWidget';
+import { QuickDataUploadModal } from './components/QuickDataUploadModal';
+import { GeminiLiveVoiceModal } from './components/GeminiLiveVoiceModal';
+import { MapsGroundingModal } from './components/MapsGroundingModal';
+import { GeminiChatbotPanel } from './components/GeminiChatbotPanel';
 import { 
   INITIAL_SPATIAL_NODES, 
   INITIAL_MEMORIA_LESSONS, 
@@ -21,9 +26,10 @@ import {
   SpatialMetrics, 
   SwarmStatusMetrics, 
   MemoriaLesson, 
-  DiscoverySector 
+  DiscoverySector,
+  NodeMediaAttachment
 } from './types';
-import { Plus, Volume2, VolumeX, Sparkles, SlidersHorizontal, Radio } from 'lucide-react';
+import { Plus, Volume2, VolumeX, Sparkles, SlidersHorizontal, Radio, Camera, UploadCloud } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [nodes, setNodes] = useState<SpatialNodeData[]>(INITIAL_SPATIAL_NODES);
@@ -37,10 +43,17 @@ export const App: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Swarm Modals & Drawers
+  // Media attachment state for Spawn Node Modal (Browser Camera API & photo upload)
+  const [spawnNodeMedia, setSpawnNodeMedia] = useState<NodeMediaAttachment | null>(null);
+
+  // Swarm & Feature Modals & Drawers
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isSemanticPanelOpen, setIsSemanticPanelOpen] = useState(false);
   const [isMemoriaOpen, setIsMemoriaOpen] = useState(false);
+  const [isQuickUploadOpen, setIsQuickUploadOpen] = useState(false);
+  const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState(false);
+  const [isMapsGroundingOpen, setIsMapsGroundingOpen] = useState(false);
+  const [isGeminiChatOpen, setIsGeminiChatOpen] = useState(false);
 
   // Active Semantic Tag Filter (for 共通項 / 関連項)
   const [activeTermTag, setActiveTermTag] = useState<string | null>(null);
@@ -178,7 +191,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Add custom node
+  // Add custom node (with photo / camera snapshot / file metadata)
   const handleAddNode = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newNodeTitle.trim()) return;
@@ -190,18 +203,34 @@ export const App: React.FC = () => {
     const phi = Math.random() * Math.PI * 2;
     const pos = calculateNodePosition(radius_r, theta, phi);
 
-    const randomConnectedNode = nodes[Math.floor(Math.random() * nodes.length)].id;
+    const randomConnectedNode = nodes[Math.floor(Math.random() * nodes.length)]?.id || 'node-01';
+    const hasMedia = !!spawnNodeMedia;
+    const tags = ['空間トポロジー', '手動作成', newNodeSector];
+    if (hasMedia) {
+      if (spawnNodeMedia.type === 'snapshot') {
+        tags.push('写メ記録', 'カメラ撮影');
+      } else {
+        tags.push('写真添付');
+      }
+    }
+
     const newNode: SpatialNodeData = {
       id: `node-${Date.now()}`,
       code: `SEC-${sectorCfg.labelEn.slice(0, 3)}-${Math.floor(700 + Math.random() * 299)}`,
       title: newNodeTitle.toUpperCase(),
       sector: newNodeSector,
       category: newNodeSector,
-      summary: 'ユーザー定義による空間探索ノード。',
-      details: `極座標 (r=${radius_r}, θ=${(theta * 180 / Math.PI).toFixed(0)}°) に配置されたセクター別トポロジーノード。`,
+      summary: hasMedia 
+        ? `${spawnNodeMedia.sourceDevice || 'カメラ'}から埋め込まれた空間記録ノード。` 
+        : 'ユーザー定義による空間探索ノード。',
+      details: hasMedia
+        ? `【添付メディア】${spawnNodeMedia.filename || '写メ'}, 解像度: ${spawnNodeMedia.resolution || 'N/A'}, 撮影: ${spawnNodeMedia.capturedAt || 'N/A'}。極座標 (r=${radius_r}, θ=${(theta * 180 / Math.PI).toFixed(0)}°)`
+        : `極座標 (r=${radius_r}, θ=${(theta * 180 / Math.PI).toFixed(0)}°) に配置されたセクター別トポロジーノード。`,
       source: 'https://discovery.local/manual-entry',
-      sourceId: 'SRC-USER',
+      sourceId: hasMedia ? 'SRC-CAMERA-METADATA' : 'SRC-USER',
       status: 'ACTIVE',
+      imageUrl: spawnNodeMedia?.dataUrl,
+      mediaAttachment: spawnNodeMedia || undefined,
       score_s,
       radius_r,
       theta,
@@ -215,7 +244,7 @@ export const App: React.FC = () => {
       generation: 1,
       connections: [randomConnectedNode],
       accentColor: sectorCfg.accentColor,
-      tags: ['空間トポロジー', '手動作成', newNodeSector],
+      tags,
       metrics: [
         { label: 'THROUGHPUT', value: '32.1k/s', trend: '+5.4%', sparkline: [18, 22, 28, 32.1] },
         { label: 'CONFIDENCE', value: '98.5%', trend: 'OPTIMAL', sparkline: [95, 96, 98.5] }
@@ -235,8 +264,186 @@ export const App: React.FC = () => {
     setNodes(prev => [newNode, ...prev]);
     setSelectedNodeId(newNode.id);
     setNewNodeTitle('');
+    setSpawnNodeMedia(null);
     setShowAddModal(false);
     playSpatialTone(659.25, 'triangle', 0.15);
+  };
+
+  // Add node from Quick Photo & Data Intake Modal
+  const handleAddNodeWithMedia = (data: {
+    title: string;
+    sector: DiscoverySector;
+    summary: string;
+    details: string;
+    media: NodeMediaAttachment | null;
+  }) => {
+    const sectorCfg = DISCOVERY_SECTORS.find(s => s.sector === data.sector) || DISCOVERY_SECTORS[0];
+    const score_s = 0.90;
+    const radius_r = 0.12;
+    const theta = sectorCfg.thetaBase + (Math.random() - 0.5) * 0.12;
+    const phi = Math.random() * Math.PI * 2;
+    const pos = calculateNodePosition(radius_r, theta, phi);
+
+    const randomConnectedNode = nodes[Math.floor(Math.random() * nodes.length)]?.id || 'node-01';
+    const tags = [data.sector, 'クイック登録'];
+    if (data.media?.type === 'snapshot') {
+      tags.push('写メ', 'カメラ撮影');
+    } else if (data.media) {
+      tags.push('データ添付');
+    }
+
+    const newNode: SpatialNodeData = {
+      id: `node-${Date.now()}`,
+      code: `SEC-${sectorCfg.labelEn.slice(0, 3)}-${Math.floor(700 + Math.random() * 299)}`,
+      title: data.title.toUpperCase(),
+      sector: data.sector,
+      category: data.sector,
+      summary: data.summary,
+      details: data.details,
+      source: 'https://discovery.local/quick-intake',
+      sourceId: data.media ? 'SRC-MEDIA-INTAKE' : 'SRC-QUICK',
+      status: 'ACTIVE',
+      imageUrl: data.media?.dataUrl,
+      mediaAttachment: data.media || undefined,
+      score_s,
+      radius_r,
+      theta,
+      phi,
+      position: pos,
+      density_rho: 0.90,
+      variance_sigma2: 0.05,
+      topologyLabel: '中核',
+      corroborationCount: 4,
+      workerId: 'w-intake-agent',
+      generation: 1,
+      connections: [randomConnectedNode],
+      accentColor: sectorCfg.accentColor,
+      tags,
+      metrics: [
+        { label: 'THROUGHPUT', value: '44.8k/s', trend: '+12.1%', sparkline: [25, 30, 38, 44.8] },
+        { label: 'CONFIDENCE', value: '99.1%', trend: 'OPTIMAL', sparkline: [96, 98, 99.1] }
+      ],
+      telemetry: {
+        latency: '1.4 ms',
+        bandwidth: '1.2 Tbps',
+        load: 28,
+        securityRating: 'CLASS-A',
+        subsystems: 12,
+      },
+      actions: [
+        { id: 'inspect-media', label: 'メディア整合性検証', description: '撮影日時・位置メタデータと空間トポロジーを照合。' }
+      ]
+    };
+
+    setNodes(prev => [newNode, ...prev]);
+    setSelectedNodeId(newNode.id);
+    playSpatialTone(784, 'triangle', 0.18);
+  };
+
+  // Add node from Google Maps Grounding
+  const handleAddNodeFromMaps = (nodeData: any) => {
+    const sector: DiscoverySector = '建築';
+    const sectorCfg = DISCOVERY_SECTORS.find(s => s.sector === sector) || DISCOVERY_SECTORS[0];
+    const radius_r = 0.18;
+    const theta = sectorCfg.thetaBase;
+    const phi = Math.PI * 0.5;
+    const pos = calculateNodePosition(radius_r, theta, phi);
+    const newNode: SpatialNodeData = {
+      id: `node-${Date.now()}`,
+      code: `SEC-ARC-${Math.floor(700 + Math.random() * 299)}`,
+      title: (nodeData.title || 'MAPS SPOT').toUpperCase(),
+      sector,
+      category: sector,
+      summary: nodeData.summary || 'Google Maps 空間スポット',
+      details: nodeData.details || 'Maps Grounding経由で取得された位置情報ノード',
+      source: nodeData.source || 'https://maps.google.com',
+      sourceId: 'SRC-GOOGLE-MAPS',
+      status: 'ACTIVE',
+      score_s: 0.82,
+      radius_r,
+      theta,
+      phi,
+      position: pos,
+      density_rho: 0.82,
+      variance_sigma2: 0.09,
+      topologyLabel: '周縁',
+      corroborationCount: 2,
+      workerId: 'w-maps-grounding',
+      generation: 1,
+      connections: [nodes[0]?.id || 'node-01'],
+      accentColor: sectorCfg.accentColor,
+      tags: ['建築', 'スポット', 'Maps'],
+      metrics: [
+        { label: 'ACCURACY', value: '96.2%', trend: '+3.1%', sparkline: [88, 92, 96.2] },
+        { label: 'VERIFIED', value: 'YES', trend: 'STABLE', sparkline: [1, 1, 1] }
+      ],
+      telemetry: {
+        latency: '3.2 ms',
+        bandwidth: '100 Mbps',
+        load: 20,
+        securityRating: 'CLASS-A',
+        subsystems: 4,
+      },
+      actions: [
+        { id: 'maps-sync', label: '位置情報再検証', description: 'Google Maps Place APIと同期。' }
+      ]
+    };
+    setNodes(prev => [newNode, ...prev]);
+    setSelectedNodeId(newNode.id);
+    playSpatialTone(587.33, 'sine', 0.12);
+  };
+
+  // Add node from Gemini Chatbot
+  const handleAddNodeFromChat = (nodeData: { title: string; sector: string; summary: string }) => {
+    const matchedSector = (DISCOVERY_SECTORS.find(s => s.sector === nodeData.sector)?.sector || '文書') as DiscoverySector;
+    const sectorCfg = DISCOVERY_SECTORS.find(s => s.sector === matchedSector) || DISCOVERY_SECTORS[0];
+    const radius_r = 0.16;
+    const theta = sectorCfg.thetaBase;
+    const phi = Math.PI * 0.3;
+    const pos = calculateNodePosition(radius_r, theta, phi);
+    const newNode: SpatialNodeData = {
+      id: `node-${Date.now()}`,
+      code: `SEC-DOC-${Math.floor(700 + Math.random() * 299)}`,
+      title: nodeData.title.toUpperCase(),
+      sector: matchedSector,
+      category: matchedSector,
+      summary: nodeData.summary,
+      details: `Gemini AIチャット対話から抽出・生成された空間ノード。`,
+      source: 'https://gemini.google.com',
+      sourceId: 'SRC-GEMINI-AI',
+      status: 'ACTIVE',
+      score_s: 0.88,
+      radius_r,
+      theta,
+      phi,
+      position: pos,
+      density_rho: 0.88,
+      variance_sigma2: 0.07,
+      topologyLabel: '中核',
+      corroborationCount: 3,
+      workerId: 'w-gemini-chat',
+      generation: 1,
+      connections: [nodes[0]?.id || 'node-01'],
+      accentColor: sectorCfg.accentColor,
+      tags: [matchedSector, 'Gemini AI', 'チャット生成'],
+      metrics: [
+        { label: 'COHERENCE', value: '99.4%', trend: '+8.2%', sparkline: [90, 95, 99.4] },
+        { label: 'QUALITY', value: 'HIGH', trend: 'OPTIMAL', sparkline: [92, 96, 99.4] }
+      ],
+      telemetry: {
+        latency: '1.8 ms',
+        bandwidth: '1 Gbps',
+        load: 25,
+        securityRating: 'CLASS-A',
+        subsystems: 6,
+      },
+      actions: [
+        { id: 'ai-expand', label: '対話深掘り', description: 'Geminiモデルによりさらなる関連ノードを推論。' }
+      ]
+    };
+    setNodes(prev => [newNode, ...prev]);
+    setSelectedNodeId(newNode.id);
+    playSpatialTone(659.25, 'triangle', 0.12);
   };
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId) || null;
@@ -277,6 +484,10 @@ export const App: React.FC = () => {
         onOpenVoiceDiscovery={() => setIsVoiceModalOpen(true)}
         onOpenSemanticTerms={() => setIsSemanticPanelOpen(prev => !prev)}
         onOpenMemoria={() => setIsMemoriaOpen(prev => !prev)}
+        onOpenQuickUpload={() => setIsQuickUploadOpen(true)}
+        onOpenGeminiLive={() => setIsLiveVoiceOpen(true)}
+        onOpenMapsGrounding={() => setIsMapsGroundingOpen(true)}
+        onOpenGeminiChat={() => setIsGeminiChatOpen(true)}
         semanticTermsCount={semanticTerms.length}
         activeTermTag={activeTermTag}
         onClearActiveTerm={() => setActiveTermTag(null)}
@@ -332,8 +543,45 @@ export const App: React.FC = () => {
         }}
       />
 
+      {/* Top Screen Quick Photo & Data Intake Modal */}
+      <QuickDataUploadModal
+        isOpen={isQuickUploadOpen}
+        onClose={() => setIsQuickUploadOpen(false)}
+        onAddNodeWithMedia={handleAddNodeWithMedia}
+      />
+
+      {/* Gemini Live Voice Realtime Modal */}
+      <GeminiLiveVoiceModal
+        isOpen={isLiveVoiceOpen}
+        onClose={() => setIsLiveVoiceOpen(false)}
+      />
+
+      {/* Google Maps Grounding Spatial Spots Modal */}
+      <MapsGroundingModal
+        isOpen={isMapsGroundingOpen}
+        onClose={() => setIsMapsGroundingOpen(false)}
+        onAddSpatialNode={handleAddNodeFromMaps}
+      />
+
+      {/* Gemini Multi-turn Chatbot Panel */}
+      <GeminiChatbotPanel
+        isOpen={isGeminiChatOpen}
+        onClose={() => setIsGeminiChatOpen(false)}
+        onAddSpatialNode={handleAddNodeFromChat}
+      />
+
       {/* Bottom Right Floating Action Bar */}
-      <div className="fixed bottom-6 right-8 z-30 flex items-center gap-3 pointer-events-auto">
+      <div className="fixed bottom-6 right-8 z-30 flex items-center gap-2.5 pointer-events-auto">
+        {/* Quick Camera Snapshot / Upload Button */}
+        <button
+          onClick={() => setIsQuickUploadOpen(true)}
+          title="Top画面 写真・写メ・データアップロード"
+          className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white/90 hover:bg-white text-black border border-black/10 transition-all text-xs font-bold shadow-md"
+        >
+          <Camera className="w-4 h-4 text-emerald-600" />
+          <span className="hidden sm:inline">写真/写メ登録</span>
+        </button>
+
         <button
           onClick={() => setShowAddModal(true)}
           title="新規ノードの追加"
@@ -352,18 +600,23 @@ export const App: React.FC = () => {
         </button>
       </div>
 
-      {/* Spawn Node Modal */}
+      {/* Spawn Node Modal (Extended with Browser Camera API & Photo Metadata) */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white rounded-3xl border border-black/15 shadow-2xl p-6">
-            <div className="flex justify-between items-center mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 backdrop-blur-sm pointer-events-auto animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white rounded-3xl border border-black/15 shadow-2xl p-6 relative max-h-[92vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 border-b border-black/10 pb-3">
               <div>
-                <div className="text-[9px] tracking-[0.3em] font-bold text-black/40">SPATIAL COMPILER</div>
-                <h3 className="text-lg font-bold text-black">12領域 空間ノードの生成</h3>
+                <div className="text-[9px] tracking-[0.3em] font-bold text-black/40 uppercase">SPATIAL COMPILER</div>
+                <h3 className="text-lg font-bold text-black flex items-center gap-2">
+                  <span>12領域 空間ノードの生成</span>
+                </h3>
               </div>
               <button 
-                onClick={() => setShowAddModal(false)}
-                className="text-black/40 hover:text-black p-1"
+                onClick={() => {
+                  setShowAddModal(false);
+                  setSpawnNodeMedia(null);
+                }}
+                className="text-black/40 hover:text-black p-1.5 rounded-full hover:bg-black/5"
               >
                 ✕
               </button>
@@ -371,8 +624,8 @@ export const App: React.FC = () => {
 
             <form onSubmit={handleAddNode} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold tracking-wider text-black/50 uppercase mb-1">
-                  ノード名称 (Title)
+                <label className="block text-[10px] font-bold tracking-wider text-black/60 uppercase mb-1">
+                  1. ノード名称 (Title)
                 </label>
                 <input
                   type="text"
@@ -385,8 +638,8 @@ export const App: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold tracking-wider text-black/50 uppercase mb-1">
-                  所属セクター (12領域)
+                <label className="block text-[10px] font-bold tracking-wider text-black/60 uppercase mb-1">
+                  2. 所属セクター (12領域)
                 </label>
                 <select
                   value={newNodeSector}
@@ -395,23 +648,40 @@ export const App: React.FC = () => {
                 >
                   {DISCOVERY_SECTORS.map(s => (
                     <option key={s.sector} value={s.sector}>
-                      【{s.sector}】 {s.labelEn} - {s.description.slice(0, 20)}...
+                      【{s.sector}】 {s.labelEn} - {s.description.slice(0, 24)}...
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              {/* Camera & Photo Snapshot embedding into node metadata */}
+              <div>
+                <label className="block text-[10px] font-bold tracking-wider text-black/60 uppercase mb-1.5 flex items-center justify-between">
+                  <span>3. 写真・写メ・データ添付 (Browser Camera API)</span>
+                  {spawnNodeMedia && (
+                    <span className="text-[9px] text-emerald-600 font-mono font-bold">● メタデータ準備完了</span>
+                  )}
+                </label>
+                <CameraCaptureWidget
+                  onMediaCaptured={setSpawnNodeMedia}
+                  currentMedia={spawnNodeMedia}
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-3 border-t border-black/10">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setSpawnNodeMedia(null);
+                  }}
                   className="px-4 py-2 text-xs font-bold text-black/60 hover:text-black"
                 >
                   キャンセル
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-black text-white text-xs font-bold tracking-wider hover:bg-black/90 shadow-md"
+                  className="px-5 py-2.5 rounded-xl bg-black text-white text-xs font-bold tracking-wider hover:bg-black/90 shadow-md active:scale-98 transition-all"
                 >
                   空間に配置する
                 </button>

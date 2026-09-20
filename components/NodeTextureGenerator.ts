@@ -91,7 +91,8 @@ export function createNodeTexture(
   ctx.font = '700 24px "Rajdhani", sans-serif';
   ctx.fillStyle = isSelected ? '#FFFFFF' : '#1A1A19';
   const labelTag = node.topologyLabel ? ` [${node.topologyLabel}]` : '';
-  ctx.fillText(`${node.code} // 【${node.sector || node.category}】${labelTag}`, 70, 52);
+  const mediaTag = (node.imageUrl || node.mediaAttachment) ? ' 📷' : '';
+  ctx.fillText(`${node.code} // 【${node.sector || node.category}】${labelTag}${mediaTag}`, 70, 52);
 
   // Status Badge Pill on Right
   const badgeText = `${node.status} // r=${(node.radius_r ?? 0.1).toFixed(2)}`;

@@ -19,7 +19,9 @@ import {
   Share2,
   Radio,
   MapPin,
-  Bot
+  Bot,
+  Camera,
+  UploadCloud
 } from 'lucide-react';
 import { GestureMode, NodeCategory, SpatialNodeData, SpatialMetrics, DiscoverySector } from '../types';
 import { DISCOVERY_SECTORS } from '../data/spatialNodes';
@@ -42,9 +44,10 @@ interface NavigationHUDProps {
   onOpenVoiceDiscovery: () => void;
   onOpenSemanticTerms: () => void;
   onOpenMemoria: () => void;
-  onOpenGeminiLive: () => void;
-  onOpenMapsGrounding: () => void;
-  onOpenGeminiChat: () => void;
+  onOpenQuickUpload?: () => void;
+  onOpenGeminiLive?: () => void;
+  onOpenMapsGrounding?: () => void;
+  onOpenGeminiChat?: () => void;
   semanticTermsCount: number;
   activeTermTag: string | null;
   onClearActiveTerm: () => void;
@@ -92,6 +95,10 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({
   onOpenVoiceDiscovery,
   onOpenSemanticTerms,
   onOpenMemoria,
+  onOpenQuickUpload,
+  onOpenGeminiLive,
+  onOpenMapsGrounding,
+  onOpenGeminiChat,
   semanticTermsCount,
   activeTermTag,
   onClearActiveTerm,
@@ -269,6 +276,55 @@ export const NavigationHUD: React.FC<NavigationHUDProps> = ({
           >
             <span>MEMORIA</span>
           </button>
+
+          {/* 写真・写メ・データアップロード (Top画面クイック登録) */}
+          {onOpenQuickUpload && (
+            <button
+              onClick={onOpenQuickUpload}
+              title="写真・写メ・データアップロード: カメラ撮影や画像・データファイルを3D空間に配置"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/90 text-black/80 hover:text-black hover:bg-white border border-black/10 transition-all text-xs font-bold tracking-wide shadow-sm"
+            >
+              <Camera className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="hidden sm:inline">写真・データ登録</span>
+              <span className="sm:hidden">写メ</span>
+            </button>
+          )}
+
+          {/* Gemini Live Voice Modal trigger if provided */}
+          {onOpenGeminiLive && (
+            <button
+              onClick={onOpenGeminiLive}
+              title="Gemini Live 音声対話"
+              className="p-2 rounded-xl bg-white/85 text-black/70 hover:text-black hover:bg-white border border-black/10 transition-all shadow-sm"
+            >
+              <Radio className="w-3.5 h-3.5 text-blue-600" />
+            </button>
+          )}
+
+          {/* Maps Grounding trigger if provided */}
+          {onOpenMapsGrounding && (
+            <button
+              onClick={onOpenMapsGrounding}
+              title="Maps Grounding 空間スポット探索"
+              className="p-2 rounded-xl bg-white/85 text-black/70 hover:text-black hover:bg-white border border-black/10 transition-all shadow-sm"
+            >
+              <MapPin className="w-3.5 h-3.5 text-amber-600" />
+            </button>
+          )}
+
+          {/* Gemini Chatbot trigger if provided */}
+          {onOpenGeminiChat && (
+            <button
+              onClick={onOpenGeminiChat}
+              title="Gemini AI チャット"
+              className="p-2 rounded-xl bg-white/85 text-black/70 hover:text-black hover:bg-white border border-black/10 transition-all shadow-sm"
+            >
+              <Bot className="w-3.5 h-3.5 text-purple-600" />
+            </button>
+          )}
+
+          {/* Google Auth Button */}
+          <AuthButton />
 
           {/* Live Gesture Status Badge */}
           <div className="hidden xl:flex items-center gap-2 bg-black/80 backdrop-blur-md text-white px-3 py-2 rounded-xl text-[10px] font-mono tracking-widest shadow-sm">

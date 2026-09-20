@@ -40,6 +40,18 @@ export interface NodeAction {
   statusText?: string;
 }
 
+export interface NodeMediaAttachment {
+  type: 'photo' | 'snapshot' | 'document' | 'data';
+  dataUrl?: string; // Data URL for image or file content
+  filename?: string;
+  capturedAt?: string;
+  resolution?: string;
+  fileSize?: string;
+  mimeType?: string;
+  sourceDevice?: string; // e.g. "Camera API (写メ)", "ファイル選択"
+  textDataPreview?: string; // Data preview for text/JSON/CSV
+}
+
 export interface SpatialNodeData {
   id: string;
   code: string;
@@ -51,6 +63,10 @@ export interface SpatialNodeData {
   source: string; // URL または ソースID (FR-05)
   sourceId?: string;
   status: NodeStatus;
+
+  // Media & Photo Metadata (写メ・カメラ画像・データ添付)
+  imageUrl?: string;
+  mediaAttachment?: NodeMediaAttachment;
 
   // Radial Coordinate Model (FR-07, FR-10)
   score_s: number; // 自己評価 s (0〜1)

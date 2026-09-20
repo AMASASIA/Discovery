@@ -14,7 +14,12 @@ import {
   Compass,
   Radio,
   Share2,
-  Users
+  Users,
+  Camera,
+  Image as ImageIcon,
+  FileText,
+  Download,
+  Maximize2
 } from 'lucide-react';
 import { SpatialNodeData } from '../types';
 import { DISCOVERY_SECTORS } from '../data/spatialNodes';
@@ -41,6 +46,8 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
     priority: 92,
     sensitivity: 45,
   });
+
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   if (!node) return null;
 
@@ -111,6 +118,81 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Media / Photo Attachment Card (写メ・カメラ写真・データ添付) */}
+      {(node.imageUrl || node.mediaAttachment) && (
+        <div className="bg-emerald-50/40 border border-emerald-200/80 rounded-2xl p-3 flex flex-col gap-2 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Camera className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="text-[10px] font-mono font-bold text-emerald-950 uppercase">
+                {node.mediaAttachment?.type === 'snapshot' ? '写メ・カメラ撮影データ (Snapshot)' : '写真・メディア添付 (Media Data)'}
+              </span>
+            </div>
+            {node.mediaAttachment?.fileSize && (
+              <span className="text-[9px] font-mono text-emerald-800/70 bg-white/70 px-1.5 py-0.5 rounded border border-emerald-100">
+                {node.mediaAttachment.fileSize}
+              </span>
+            )}
+          </div>
+
+          {(node.imageUrl || node.mediaAttachment?.dataUrl) && (
+            <div className="relative group rounded-xl overflow-hidden border border-black/10 bg-black/5 shadow-inner">
+              <img
+                src={node.imageUrl || node.mediaAttachment?.dataUrl}
+                alt={node.mediaAttachment?.filename || node.title}
+                className="w-full h-36 object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300"
+                onClick={() => setShowPhotoModal(true)}
+              />
+              <button
+                onClick={() => setShowPhotoModal(true)}
+                className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-black/70 text-white text-[10px] font-mono flex items-center gap-1 opacity-80 group-hover:opacity-100 backdrop-blur-sm transition-opacity"
+              >
+                <Maximize2 className="w-3 h-3" />
+                <span>拡大表示</span>
+              </button>
+            </div>
+          )}
+
+          {/* Photo & Attachment Metadata Breakdown */}
+          <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono bg-white/80 p-2 rounded-xl border border-emerald-100">
+            <div>
+              <span className="text-black/40 block text-[8px]">撮影・取得日時</span>
+              <span className="text-black font-semibold truncate block">
+                {node.mediaAttachment?.capturedAt || '記録済み'}
+              </span>
+            </div>
+            <div>
+              <span className="text-black/40 block text-[8px]">解像度 / 規格</span>
+              <span className="text-black font-semibold truncate block">
+                {node.mediaAttachment?.resolution || '標準画質'}
+              </span>
+            </div>
+            <div className="col-span-2 pt-0.5 border-t border-black/5 flex items-center justify-between">
+              <span className="text-black/50 text-[9px] truncate">
+                ソース: {node.mediaAttachment?.sourceDevice || 'Camera API'}
+              </span>
+              {(node.imageUrl || node.mediaAttachment?.dataUrl) && (
+                <a
+                  href={node.imageUrl || node.mediaAttachment?.dataUrl}
+                  download={node.mediaAttachment?.filename || 'node-photo.jpg'}
+                  className="flex items-center gap-1 text-[9px] text-emerald-700 hover:text-emerald-900 font-bold"
+                >
+                  <Download className="w-2.5 h-2.5" />
+                  <span>保存</span>
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Text/Data Preview if present */}
+          {node.mediaAttachment?.textDataPreview && (
+            <div className="text-[9px] font-mono bg-black/5 p-2 rounded-lg text-black/70 max-h-20 overflow-y-auto whitespace-pre-wrap">
+              {node.mediaAttachment.textDataPreview}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Summary (P2 <= 80 chars requirement) */}
       <div className="bg-black/[0.02] p-3 rounded-2xl border border-black/5">
@@ -246,6 +328,57 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
               {actionSuccess}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Enlarged Photo Modal / Lightbox */}
+      {showPhotoModal && (node.imageUrl || node.mediaAttachment?.dataUrl) && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200"
+          onClick={() => setShowPhotoModal(false)}
+        >
+          <div 
+            className="relative max-w-3xl max-h-[90vh] bg-zinc-900 rounded-3xl overflow-hidden border border-white/20 shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-3.5 bg-black/60 border-b border-white/10 text-white">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-bold font-mono">
+                  {node.mediaAttachment?.filename || node.title}
+                </span>
+                {node.mediaAttachment?.resolution && (
+                  <span className="text-[10px] text-white/60 font-mono">
+                    ({node.mediaAttachment.resolution})
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setShowPhotoModal(false)}
+                className="p-1 rounded-full hover:bg-white/10 text-white/60 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-2 flex items-center justify-center bg-black overflow-auto max-h-[calc(90vh-100px)]">
+              <img
+                src={node.imageUrl || node.mediaAttachment?.dataUrl}
+                alt={node.title}
+                className="max-h-[75vh] w-auto object-contain rounded-lg"
+              />
+            </div>
+            <div className="p-3 bg-zinc-900 border-t border-white/10 flex items-center justify-between text-xs text-white/70 font-mono">
+              <span>{node.mediaAttachment?.capturedAt} // {node.mediaAttachment?.sourceDevice}</span>
+              <a
+                href={node.imageUrl || node.mediaAttachment?.dataUrl}
+                download={node.mediaAttachment?.filename || 'node-photo.jpg'}
+                className="px-3 py-1 bg-white text-black font-bold rounded-lg hover:bg-white/90 text-xs flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>ダウンロード</span>
+              </a>
+            </div>
+          </div>
         </div>
       )}
     </div>
