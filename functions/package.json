@@ -1,0 +1,22 @@
+{
+  "name": "discovery-cloud-functions",
+  "description": "Firebase Cloud Functions for Firestore to BigQuery sync (domain_nodes)",
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "build": "tsc",
+    "deploy": "firebase deploy --only functions"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "@google-cloud/bigquery": "^7.9.2",
+    "firebase-admin": "^13.2.0",
+    "firebase-functions": "^6.3.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  },
+  "private": true
+}
